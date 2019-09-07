@@ -1,0 +1,13 @@
+Events:
+  test1:
+    File: data/(?P<test>test1)
+    Process: echo $file
+    Backup: backup/$test
+  test2:
+    File: $TMPROOT/data/(?P<test>test2)
+    Process: echo $file
+    Backup: $TMPROOT/backup/$test
+  test3:
+    File: data/(?P<test>test3/test3)
+    Process: echo $file
+    Backup: backup/$test
