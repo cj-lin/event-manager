@@ -24,14 +24,13 @@ class crule:
         minute, hour, day, month, weekday = frequency.split()
         self.rrule = dateutil.rrule.rrule(
             dateutil.rrule.DAILY,
-            bymonth=map(int, month.split(',')),
-            bymonthday=map(int, day.split(',')),
-            byweekday=map(int, weekday.split(',')),
-            byhour=map(int, hour.split(',')),
-            byminute=map(int, minute.split(',')),
+            bymonth=map(int, month.split(",")),
+            bymonthday=map(int, day.split(",")),
+            byweekday=map(int, weekday.split(",")),
+            byhour=map(int, hour.split(",")),
+            byminute=map(int, minute.split(",")),
             bysecond=0,
         )
-
 
     def get_next_time(self):
         for rule in self.rrule:
@@ -43,11 +42,9 @@ class crontab:
     def __init__(self):
         self.rules = DefaultSortedDict()
 
-
     def add_rule(self, frequency, name):
         rule = crule(frequency)
         self.rules[rule.get_next_time()].append((rule, name))
-
 
     async def generate(self):
         while True:
@@ -61,7 +58,6 @@ class crontab:
 
             else:
                 await asyncio.sleep(60)
-
 
     def clear_all_rules(self):
         self.rules.clear()

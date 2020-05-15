@@ -34,12 +34,14 @@ def resolve_path_all(path, resolve=True):
 
 class GroupTemplate(string.Template):
     """Overwrite idpattern to enable $1 $2 ..."""
-    idpattern = r'\w+'
+
+    idpattern = r"\w+"
 
 
 @dataclasses.dataclass
 class GeneralConfig:
     """Global config"""
+
     watch: str
     conf: str
     log: str = None
@@ -62,6 +64,7 @@ class TriggerItem:
 
     Pattern is precompiled from file name to save match time.
     """
+
     file: str
     event: str
     watch: dataclasses.InitVar[pathlib.Path]
@@ -78,6 +81,7 @@ class TriggerItem:
 @dataclasses.dataclass
 class EventItem:
     """Instances of events"""
+
     process: str
     timeout: int
     success: str
@@ -95,6 +99,7 @@ class EventItem:
 
 class EventManager:
     """This is the core of event manager."""
+
     def __init__(self, config):
         self.config = config
         self.triggers = None
@@ -105,32 +110,28 @@ class EventManager:
         self.event_loop = asyncio.get_event_loop()
         self.load_config()
 
-
     def load_config(self):
         """Load the yaml config and do initial settings."""
         yml_conf = yaml.safe_load(self.config.conf.read_text())
-        if 'General' in yml_conf:
-            self.config = dataclasses.replace(
-                self.config,
-                **yml_conf['General'],
-            )
+        if "General" in yml_conf:
+            self.config = dataclasses.replace(self.config, **yml_conf["General"],)
         self.triggers = []
         self.events = {}
 
-        for name, item in yml_conf['Events'].items():
-            if 'Process' in item:
+        for name, item in yml_conf["Events"].items():
+            if "Process" in item:
                 self.events[name] = EventItem(
-                    process=item['Process'],
-                    timeout=item.get('Timeout'),
-                    success=item.get('Success'),
-                    fail=item.get('Fail'),
+                    process=item["Process"],
+                    timeout=item.get("Timeout"),
+                    success=item.get("Success"),
+                    fail=item.get("Fail"),
                 )
 
-                if 'File' in item:
+                if "File" in item:
                     trigger = TriggerItem(
-                        file=item['File'],
+                        file=item["File"],
                         event=name,
-                        backup=item.get('Backup'),
+                        backup=item.get("Backup"),
                         watch=self.config.watch,
                     )
                     self.triggers.append(trigger)
@@ -138,33 +139,35 @@ class EventManager:
                     if not self.config.recursive and trigger.file.parent.is_dir():
                         self.filewatcher.add_watch(trigger.file.parent)
 
-                elif 'Cron' in item:
-                    self.crontab.add_rule(item['Cron'], name)
+                elif "Cron" in item:
+                    self.crontab.add_rule(item["Cron"], name)
 
         if self.config.recursive:
             self.filewatcher.rec_add_watch(self.config.watch)
 
         if not self.filewatcher.watch_dir:
-            raise Exception('No vaild triggers, exit.')
+            raise Exception("No vaild triggers, exit.")
 
         if self.config.refresh:
             self.filewatcher.add_watch(self.config.conf.parent)
 
         self.config.log.info(
-            '%s eventmanager start %s\nwatch: %s\nconf: %s\nlog: %s\nconcurrent: %s\n'
-            'recursive: %s\nauto_refresh: %s\ndelete_file: %s\ndebug: %s',
-            '-'*30, '-'*30, *dataclasses.astuple(self.config)
+            "%s eventmanager start %s\nwatch: %s\nconf: %s\nlog: %s\nconcurrent: %s\n"
+            "recursive: %s\nauto_refresh: %s\ndelete_file: %s\ndebug: %s",
+            "-" * 30,
+            "-" * 30,
+            *dataclasses.astuple(self.config),
         )
-
 
     def run(self):
         """Run the event loop."""
         self.event_loop.add_reader(self.filewatcher.inotify.fd, self.read_inotify_event)
-        self.event_loop.run_until_complete(asyncio.gather(
-            *[self.worker() for _ in range(self.config.concurrent)],
-            self.read_cron_event(),
-        ))
-
+        self.event_loop.run_until_complete(
+            asyncio.gather(
+                *[self.worker() for _ in range(self.config.concurrent)],
+                self.read_cron_event(),
+            )
+        )
 
     def read_inotify_event(self):
         """Handle inotify events."""
@@ -173,67 +176,74 @@ class EventManager:
                 if not self.config.recursive:
                     self.event_loop.remove_reader(self.filewatcher.inotify.fd)
                     self.filewatcher.reset()
-                    self.event_loop.add_reader(self.filewatcher.inotify.fd, self.read_inotify_event)
+                    self.event_loop.add_reader(
+                        self.filewatcher.inotify.fd, self.read_inotify_event
+                    )
 
                 self.crontab.clear_all_rules()
                 self.load_config()
 
-            elif status == 'mkdir':
+            elif status == "mkdir":
                 self.filewatcher.add_watch(pathname, rec_flag=True)
-                self.config.log.debug('add %s to watch', str(pathname))
+                self.config.log.debug("add %s to watch", str(pathname))
 
-            elif status == 'rmdir':
+            elif status == "rmdir":
                 self.filewatcher.remove_watch(pathname)
-                self.config.log.debug('remove %s from watch', str(pathname))
+                self.config.log.debug("remove %s from watch", str(pathname))
 
-            elif status == 'file':
-                self.config.log.debug('detected file %s', str(pathname))
+            elif status == "file":
+                self.config.log.debug("detected file %s", str(pathname))
 
                 for trigger in self.triggers:
                     match = trigger.pattern.match(str(pathname))
                     if match:
                         mapping = {
                             **match.groupdict(),
-                            **{str(i):j for i, j in enumerate(match.groups(), 1)},
-                            'file': pathname,
+                            **{str(i): j for i, j in enumerate(match.groups(), 1)},
+                            "file": pathname,
                         }
 
-                        self.queue.put_nowait(dataclasses.replace(
-                            self.events[trigger.event],
-                            mapping=mapping,
-                        ))
+                        self.queue.put_nowait(
+                            dataclasses.replace(
+                                self.events[trigger.event], mapping=mapping,
+                            )
+                        )
 
                         if trigger.backup:
-                            backup = GroupTemplate(str(trigger.backup)).safe_substitute(**mapping)
-                            pathlib.Path(backup).parent.mkdir(parents=True, exist_ok=True)
+                            backup = GroupTemplate(str(trigger.backup)).safe_substitute(
+                                **mapping
+                            )
+                            pathlib.Path(backup).parent.mkdir(
+                                parents=True, exist_ok=True
+                            )
                             shutil.copyfile(pathname, backup)
-                            self.config.log.info('backup file to %s', backup)
+                            self.config.log.info("backup file to %s", backup)
 
                 if self.config.delete and pathname.is_file():
                     pathname.unlink()
-                    self.config.log.info('remove file %s', str(pathname))
-
+                    self.config.log.info("remove file %s", str(pathname))
 
     async def read_cron_event(self):
         async for at, name in self.crontab.generate():
-            self.queue.put_nowait(dataclasses.replace(
-                self.events[name],
-                mapping={
-                    year: at.year,
-                    month: at.month,
-                    day: at.day,
-                    hour: at.hour,
-                    minute: at.minute,
-                },
-            ))
-
+            self.queue.put_nowait(
+                dataclasses.replace(
+                    self.events[name],
+                    mapping={
+                        year: at.year,
+                        month: at.month,
+                        day: at.day,
+                        hour: at.hour,
+                        minute: at.minute,
+                    },
+                )
+            )
 
     async def worker(self):
         """Monitor Processes and put next events into the queue after finished."""
         while True:
             event = await self.queue.get()
             process = await asyncio.create_subprocess_shell(event.sub)
-            self.config.log.debug('Start: %s\nPid: %s', event.sub, process.pid)
+            self.config.log.debug("Start: %s\nPid: %s", event.sub, process.pid)
 
             try:
                 await asyncio.wait_for(process.wait(), event.timeout)
@@ -242,22 +252,23 @@ class EventManager:
                 for child in psutil.Process(process.pid).children(True):
                     child.kill()
                 process.kill()
-                stats = 'Timeout'
+                stats = "Timeout"
 
             else:
-                stats = 'fail' if process.returncode else 'success'
+                stats = "fail" if process.returncode else "success"
                 next_event = getattr(event, stats)
 
                 if next_event:
-                    self.queue.put_nowait(dataclasses.replace(
-                        self.events[next_event],
-                        mapping=event.mapping,
-                    ))
+                    self.queue.put_nowait(
+                        dataclasses.replace(
+                            self.events[next_event], mapping=event.mapping,
+                        )
+                    )
 
             self.config.log.info(
-                '%s: %s\nPid: %s%s',
+                "%s: %s\nPid: %s%s",
                 stats.capitalize(),
                 event.sub,
                 process.pid,
-                f'\nNext: {next_event}' if next_event else '',
+                f"\nNext: {next_event}" if next_event else "",
             )
