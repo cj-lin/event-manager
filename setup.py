@@ -1,28 +1,12 @@
-from setuptools import setup, find_packages
+from setuptools import setup
 setup(
-    name = 'eventmanager',
-    version = '1.0',
-    packages = find_packages(exclude=["tests"]),
+    use_scm_version=True,
     package_data = {
         '': ['*'],
     },
-    install_requires = [
-        'click',
-        'python-dateutil',
-        'inotify_simple',
-        'psutil',
-        'pyyaml',
-        'sortedcontainers',
-    ],
     entry_points = {
         'console_scripts': [
             'eventmanager = eventmanager:cli',
-        ],
-    },
-    extras_require = {
-        'test':  [
-            'pylint',
-            'pytest',
         ],
     },
 )
