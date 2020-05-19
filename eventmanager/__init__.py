@@ -8,8 +8,6 @@ Author: CJ Lin
 command line wrapper of eventmanager.
 """
 
-__version__ = "1.0"
-
 import pathlib
 import os
 import subprocess
