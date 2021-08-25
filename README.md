@@ -1,6 +1,4 @@
-============
-EventManager
-============
+# EventManager
 
 EventManager is a lightweight workflow tool with shell utilities.
 Requires python 3.7+.
@@ -10,11 +8,7 @@ One can simply execute ``pip install .`` to install the tool.
 The entrypoint of EventManager is ``eventmanager``.
 To run EventManager, type ``eventmanager start``.
 
-------------
-
-============
-config
-============
+# config
 
 Config is in ``yaml`` format, execute ``eventmanager config`` to see and modify it.
 
@@ -29,11 +23,7 @@ The structure of config file is a list of dictionaries, each dictionary can incl
 
 In which ``Event`` and ``Process`` are needed, others are optional.
 
-------------
-
-============
-test
-============
+#test
 
 We use ``pytest`` to run our tests, all you have to do is run ``py.test`` in ``test`` directory.
 
