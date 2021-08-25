@@ -8,9 +8,10 @@ Author: CJ Lin
 
 import logging
 import logging.handlers
+import pathlib
 
 
-def get_logger(prefix, is_debug):
+def get_logger(prefix: pathlib.Path, is_debug: bool) -> logging.Logger:
     if prefix:
         prefix.parent.mkdir(parents=True, exist_ok=True)
         handler = logging.handlers.TimedRotatingFileHandler(prefix, when="midnight")

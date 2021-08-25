@@ -6,7 +6,6 @@ import os
 import pathlib
 import subprocess
 import time
-import pkg_resources
 
 import pytest
 
@@ -16,9 +15,7 @@ class AllItem:
     root: pathlib.Path
     data: pathlib.Path = None
     backup: pathlib.Path = None
-    conf: pathlib.Path = pathlib.Path(
-        pkg_resources.resource_filename(__name__, "eventmanager.yml")
-    )
+    conf: pathlib.Path = pathlib.Path(__file__).parent / "event-manager.yml"
     proc: subprocess.Popen = None
 
     def __post_init__(self):
@@ -33,7 +30,8 @@ class AllItem:
         os.environ["TMPBACKUP"] = str(self.backup)
 
         self.proc = subprocess.Popen(
-            f"eventmanager start -d {self.root} -f {self.conf} -rav", shell=True,
+            f"event-manager start -d {self.root} -f {self.conf} -rav",
+            shell=True,
         )
         time.sleep(1)
 
@@ -71,4 +69,4 @@ def test_create_directories(create_eventmanager):
 def test_refresh(create_eventmanager):
     create_eventmanager.conf.touch()
     time.sleep(1)
-    assert create_eventmanager.proc.poll() == None
+    assert create_eventmanager.proc.poll() is None

@@ -20,10 +20,10 @@ import string
 import psutil
 import yaml
 
-from . import cron, filewatch, log
+from . import cron, file_watch, log
 
 
-def resolve_path_all(path, resolve=True):
+def resolve_path_all(path: pathlib.Path, resolve: bool = True) -> pathlib.Path:
     """Expend environment variables and resolve path."""
     if path:
         path = pathlib.Path(os.path.expandvars(path)).expanduser()
@@ -104,7 +104,7 @@ class EventManager:
         self.config = config
         self.triggers = None
         self.events = None
-        self.filewatcher = filewatch.FileWatcher()
+        self.filewatcher = file_watch.FileWatcher()
         self.crontab = cron.crontab()
         self.queue = asyncio.Queue()
         self.event_loop = asyncio.get_event_loop()
@@ -114,7 +114,10 @@ class EventManager:
         """Load the yaml config and do initial settings."""
         yml_conf = yaml.safe_load(self.config.conf.read_text())
         if "General" in yml_conf:
-            self.config = dataclasses.replace(self.config, **yml_conf["General"],)
+            self.config = dataclasses.replace(
+                self.config,
+                **yml_conf["General"],
+            )
         self.triggers = []
         self.events = {}
 
@@ -205,7 +208,8 @@ class EventManager:
 
                         self.queue.put_nowait(
                             dataclasses.replace(
-                                self.events[trigger.event], mapping=mapping,
+                                self.events[trigger.event],
+                                mapping=mapping,
                             )
                         )
 
@@ -261,7 +265,8 @@ class EventManager:
                 if next_event:
                     self.queue.put_nowait(
                         dataclasses.replace(
-                            self.events[next_event], mapping=event.mapping,
+                            self.events[next_event],
+                            mapping=event.mapping,
                         )
                     )
 

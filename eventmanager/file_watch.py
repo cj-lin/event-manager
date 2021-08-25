@@ -6,7 +6,9 @@ Filename: filewatcher
 Author: CJ Lin
 """
 
-from inotify_simple import flags, INotify
+import pathlib
+
+from inotify_simple import INotify, flags
 
 MASK_DIR = flags.CLOSE_WRITE | flags.MOVED_TO
 MASK_REC = MASK_DIR | flags.ISDIR | flags.CREATE | flags.DELETE | flags.MOVED_FROM
@@ -17,18 +19,18 @@ class FileWatcher:
         self.inotify = INotify()
         self.watch_dir = {}
 
-    def add_watch(self, directory, rec_flag=False):
+    def add_watch(self, directory: pathlib.Path, rec_flag: bool = False):
         watch = self.inotify.add_watch(directory, MASK_REC if rec_flag else MASK_DIR)
         self.watch_dir[watch] = directory
         self.watch_dir[directory] = watch
 
-    def rec_add_watch(self, directory):
+    def rec_add_watch(self, directory: pathlib.Path):
         self.add_watch(directory, rec_flag=True)
 
         for watch in filter(lambda x: x.is_dir(), directory.rglob("*")):
             self.add_watch(watch, rec_flag=True)
 
-    def remove_watch(self, directory):
+    def remove_watch(self, directory: pathlib.Path):
         del self.watch_dir[self.watch_dir[directory]]
         del self.watch_dir[directory]
 
