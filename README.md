@@ -23,7 +23,7 @@ The structure of config file is a list of dictionaries, each dictionary can incl
 
 In which ``Event`` and ``Process`` are needed, others are optional.
 
-#test
+# test
 
 We use ``pytest`` to run our tests, all you have to do is run ``py.test`` in ``test`` directory.
 
