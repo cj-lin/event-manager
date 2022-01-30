@@ -2,11 +2,10 @@
 # -*- coding: utf-8 -*-
 
 """
-Filename: eventmanager
+Filename: event_manager
 Author: CJ Lin
 
 Watch filesystem using inotify, react and monitor subprocess when event is generated.
-Require python 3.7+
 """
 
 import asyncio
@@ -24,7 +23,15 @@ from . import cron, file_watch, log
 
 
 def resolve_path_all(path: pathlib.Path, resolve: bool = True) -> pathlib.Path:
-    """Expend environment variables and resolve path."""
+    """ Expend environment variables and resolve path.
+
+    Args:
+        path (pathlib.Path): [description]
+        resolve (bool, optional): [description]. Defaults to True.
+
+    Returns:
+        pathlib.Path: [description]
+    """
     if path:
         path = pathlib.Path(os.path.expandvars(path)).expanduser()
         if resolve:
@@ -33,7 +40,11 @@ def resolve_path_all(path: pathlib.Path, resolve: bool = True) -> pathlib.Path:
 
 
 class GroupTemplate(string.Template):
-    """Overwrite idpattern to enable $1 $2 ..."""
+    """ Overwrite idpattern to enable $1 $2 ...
+
+    Args:
+        string ([type]): [description]
+    """
 
     idpattern = r"\w+"
 
