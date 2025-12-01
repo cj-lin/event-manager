@@ -187,7 +187,10 @@ class EventManager:
     async def poll_file_events(self):
         """Poll for file events from the file watcher."""
         while True:
-            self.read_file_event()
+            try:
+                self.read_file_event()
+            except Exception as e:
+                self.config.log.error("Error processing file events: %s", e)
             await asyncio.sleep(0.5)
 
     def read_file_event(self):
