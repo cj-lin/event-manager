@@ -263,7 +263,7 @@ class EventManager:
             try:
                 await asyncio.wait_for(process.wait(), event.timeout)
 
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 for child in psutil.Process(process.pid).children(True):
                     child.kill()
                 process.kill()
