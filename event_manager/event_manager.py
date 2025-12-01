@@ -23,7 +23,7 @@ from . import cron, file_watch, log
 
 
 def resolve_path_all(path: pathlib.Path, resolve: bool = True) -> pathlib.Path:
-    """Expend environment variables and resolve path.
+    """Expand environment variables and resolve path.
 
     Args:
         path (pathlib.Path): [description]
@@ -188,7 +188,7 @@ class EventManager:
         """Poll for file events from the file watcher."""
         while True:
             self.read_file_event()
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.5)
 
     def read_file_event(self):
         """Handle file events."""

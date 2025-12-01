@@ -8,6 +8,7 @@ Author: CJ Lin
 Multi-platform file watcher using watchfiles library.
 """
 
+import logging
 import pathlib
 import threading
 from collections import deque
@@ -17,6 +18,8 @@ from watchfiles import Change, watch
 # Thread join timeout in seconds
 _THREAD_JOIN_TIMEOUT = 1.0
 
+logger = logging.getLogger(__name__)
+
 
 class FileWatcher:
     """Multi-platform file watcher using watchfiles library.
@@ -24,25 +27,43 @@ class FileWatcher:
     Note: With watchfiles, the directories to watch are configured at start time.
     Dynamic addition/removal of watches requires stopping and restarting the watcher.
     In recursive mode, watchfiles automatically handles subdirectory watching.
+
+    Thread Safety:
+        The internal _changes deque is protected by a lock for thread-safe access
+        between the watcher thread and the main thread. The read() method is safe
+        to call without checking has_changes() first.
+
+    Recursive Mode:
+        Setting rec_flag=True on any add_watch() call enables recursive watching
+        for ALL directories, not just the specified one. This is by design since
+        watchfiles applies the recursive setting globally to all watched paths.
+
+    API Compatibility:
+        The watch_dir dictionary is maintained for compatibility but only maps
+        directory -> directory (not the bidirectional watch_descriptor mapping
+        from the original inotify implementation).
     """
 
     def __init__(self):
         self.watch_dirs = set()
-        self.watch_dir = {}  # Keep for compatibility
+        self.watch_dir = {}  # Keep for compatibility (directory -> directory only)
         self.recursive = False
         self._changes = deque()
+        self._lock = threading.Lock()
         self._stop_event = threading.Event()
         self._watcher_thread = None
+        self._known_dirs = set()  # Track known directories for deletion detection
 
     def add_watch(self, directory: pathlib.Path, rec_flag: bool = False):
         """Add a directory to watch.
 
         Args:
             directory: Directory path to watch.
-            rec_flag: If True, watch recursively (applies to all watched dirs).
+            rec_flag: If True, enables recursive watching for ALL watched dirs.
         """
         self.watch_dirs.add(directory)
         self.watch_dir[directory] = directory  # Keep for compatibility
+        self._known_dirs.add(directory)
         if rec_flag:
             self.recursive = True
 
@@ -66,9 +87,15 @@ class FileWatcher:
         """
         self.watch_dirs.discard(directory)
         self.watch_dir.pop(directory, None)
+        self._known_dirs.discard(directory)
 
     def start(self):
-        """Start the file watcher in a background thread."""
+        """Start the file watcher in a background thread.
+
+        Does nothing if a watcher thread is already running.
+        """
+        if self._watcher_thread and self._watcher_thread.is_alive():
+            return
         self._stop_event.clear()
         self._watcher_thread = threading.Thread(target=self._watch_loop, daemon=True)
         self._watcher_thread.start()
@@ -78,64 +105,91 @@ class FileWatcher:
         if not self.watch_dirs:
             return
 
-        for changes in watch(
-            *self.watch_dirs,
-            stop_event=self._stop_event,
-            recursive=self.recursive,
-            watch_filter=None,
-        ):
-            for change_type, path in changes:
-                pathname = pathlib.Path(path)
-                status = None
+        try:
+            for changes in watch(
+                *self.watch_dirs,
+                stop_event=self._stop_event,
+                recursive=self.recursive,
+                watch_filter=None,
+            ):
+                for change_type, path in changes:
+                    file_path = pathlib.Path(path)
+                    status = None
 
-                if change_type == Change.added:
-                    if pathname.is_dir():
-                        status = "mkdir"
-                    else:
-                        status = "file"
-                elif change_type == Change.modified:
-                    if pathname.is_file():
-                        status = "file"
-                elif change_type == Change.deleted:
-                    # For deleted items, we can't check if it was a dir
-                    # We mark it as rmdir to signal a deletion event
-                    status = "rmdir"
+                    if change_type == Change.added:
+                        if file_path.is_dir():
+                            status = "mkdir"
+                            self._known_dirs.add(file_path)
+                        else:
+                            status = "file"
+                    elif change_type == Change.modified:
+                        # Directory modifications are ignored as they don't represent
+                        # meaningful file content changes for trigger matching
+                        if file_path.is_file():
+                            status = "file"
+                    elif change_type == Change.deleted:
+                        # Check if this was a known directory
+                        if file_path in self._known_dirs:
+                            status = "rmdir"
+                            self._known_dirs.discard(file_path)
+                        else:
+                            # Deleted files are not processed as triggers
+                            # since the file content is no longer available
+                            pass
 
-                if status:
-                    self._changes.append((status, pathname))
+                    if status:
+                        with self._lock:
+                            self._changes.append((status, file_path))
+        except Exception as e:
+            logger.error("File watcher thread error: %s", e)
 
     def read(self):
         """Read pending changes from the watcher.
 
+        Thread-safe method that can be called without checking has_changes() first.
+
         Yields:
-            Tuple of (status, pathname) where status is one of
+            Tuple of (status, file_path) where status is one of
             'mkdir', 'rmdir', or 'file'.
         """
-        while self._changes:
-            yield self._changes.popleft()
+        while True:
+            with self._lock:
+                if not self._changes:
+                    break
+                yield self._changes.popleft()
 
     def has_changes(self):
         """Check if there are pending changes.
 
+        Note: Due to potential race conditions between threads, it's recommended
+        to call read() directly instead of checking has_changes() first.
+
         Returns:
             True if there are changes to read.
         """
-        return len(self._changes) > 0
+        with self._lock:
+            return len(self._changes) > 0
 
     def reset(self):
         """Reset the file watcher."""
         self._stop_event.set()
         if self._watcher_thread and self._watcher_thread.is_alive():
             self._watcher_thread.join(timeout=_THREAD_JOIN_TIMEOUT)
+            if self._watcher_thread.is_alive():
+                logger.warning("File watcher thread did not stop within timeout")
         self.watch_dirs.clear()
         self.watch_dir.clear()
-        self._changes.clear()
+        with self._lock:
+            self._changes.clear()
         self._stop_event.clear()
         self.recursive = False
         self._watcher_thread = None
+        self._known_dirs.clear()
 
     def stop(self):
         """Stop the file watcher."""
         self._stop_event.set()
         if self._watcher_thread and self._watcher_thread.is_alive():
             self._watcher_thread.join(timeout=_THREAD_JOIN_TIMEOUT)
+            if self._watcher_thread.is_alive():
+                logger.warning("File watcher thread did not stop within timeout")
