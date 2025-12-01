@@ -4,54 +4,124 @@
 """
 Filename: filewatcher
 Author: CJ Lin
+
+Multi-platform file watcher using watchfiles library.
 """
 
 import pathlib
+import threading
+from collections import deque
 
-from inotify_simple import INotify, flags
-
-MASK_DIR = flags.CLOSE_WRITE | flags.MOVED_TO
-MASK_REC = MASK_DIR | flags.ISDIR | flags.CREATE | flags.DELETE | flags.MOVED_FROM
+from watchfiles import Change, watch
 
 
 class FileWatcher:
     def __init__(self):
-        self.inotify = INotify()
-        self.watch_dir = {}
+        self.watch_dirs = set()
+        self.watch_dir = {}  # Keep for compatibility
+        self.recursive = False
+        self._changes = deque()
+        self._stop_event = threading.Event()
+        self._watcher_thread = None
 
     def add_watch(self, directory: pathlib.Path, rec_flag: bool = False):
-        watch = self.inotify.add_watch(directory, MASK_REC if rec_flag else MASK_DIR)
-        self.watch_dir[watch] = directory
-        self.watch_dir[directory] = watch
+        """Add a directory to watch.
+
+        Args:
+            directory: Directory path to watch.
+            rec_flag: If True, watch recursively (applies to all watched dirs).
+        """
+        self.watch_dirs.add(directory)
+        self.watch_dir[directory] = directory  # Keep for compatibility
+        if rec_flag:
+            self.recursive = True
 
     def rec_add_watch(self, directory: pathlib.Path):
+        """Add a directory to watch recursively.
+
+        Args:
+            directory: Directory path to watch recursively.
+        """
         self.add_watch(directory, rec_flag=True)
 
-        for watch in filter(lambda x: x.is_dir(), directory.rglob("*")):
-            self.add_watch(watch, rec_flag=True)
-
     def remove_watch(self, directory: pathlib.Path):
-        del self.watch_dir[self.watch_dir[directory]]
-        del self.watch_dir[directory]
+        """Remove a directory from watch list.
 
-    def read(self):
-        for watch, mask, _, name in self.inotify.read():
-            masks = flags.from_mask(mask)
-            pathname = self.watch_dir[watch] / name
-            status = None
+        Args:
+            directory: Directory path to remove from watch.
+        """
+        self.watch_dirs.discard(directory)
+        self.watch_dir.pop(directory, None)
 
-            if flags.ISDIR in masks:
-                if flags.CREATE in masks or flags.MOVED_TO in masks:
-                    status = "mkdir"
-                else:
+    def start(self):
+        """Start the file watcher in a background thread."""
+        self._stop_event.clear()
+        self._watcher_thread = threading.Thread(target=self._watch_loop, daemon=True)
+        self._watcher_thread.start()
+
+    def _watch_loop(self):
+        """Internal method that runs the watchfiles generator in a thread."""
+        if not self.watch_dirs:
+            return
+
+        for changes in watch(
+            *self.watch_dirs,
+            stop_event=self._stop_event,
+            recursive=self.recursive,
+            watch_filter=None,
+        ):
+            for change_type, path in changes:
+                pathname = pathlib.Path(path)
+                status = None
+
+                if change_type == Change.added:
+                    if pathname.is_dir():
+                        status = "mkdir"
+                    else:
+                        status = "file"
+                elif change_type == Change.modified:
+                    if pathname.is_file():
+                        status = "file"
+                elif change_type == Change.deleted:
+                    # For deleted items, we can't check if it was a dir
+                    # We mark it as rmdir to signal a deletion event
                     status = "rmdir"
 
-            elif flags.CLOSE_WRITE in masks or flags.MOVED_TO in masks:
-                status = "file"
+                if status:
+                    self._changes.append((status, pathname))
 
-            yield status, pathname
+    def read(self):
+        """Read pending changes from the watcher.
+
+        Yields:
+            Tuple of (status, pathname) where status is one of
+            'mkdir', 'rmdir', or 'file'.
+        """
+        while self._changes:
+            yield self._changes.popleft()
+
+    def has_changes(self):
+        """Check if there are pending changes.
+
+        Returns:
+            True if there are changes to read.
+        """
+        return len(self._changes) > 0
 
     def reset(self):
-        self.inotify.close()
+        """Reset the file watcher."""
+        self._stop_event.set()
+        if self._watcher_thread and self._watcher_thread.is_alive():
+            self._watcher_thread.join(timeout=1.0)
+        self.watch_dirs.clear()
         self.watch_dir.clear()
-        self.inotify = INotify()
+        self._changes.clear()
+        self._stop_event.clear()
+        self.recursive = False
+        self._watcher_thread = None
+
+    def stop(self):
+        """Stop the file watcher."""
+        self._stop_event.set()
+        if self._watcher_thread and self._watcher_thread.is_alive():
+            self._watcher_thread.join(timeout=1.0)
