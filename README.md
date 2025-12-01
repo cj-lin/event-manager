@@ -1,7 +1,7 @@
 # EventManager
 
 EventManager is a lightweight workflow tool with shell utilities.
-Requires Python 3.10+.
+Requires Python 3.12+.
 One can simply execute ``uv sync`` to install the tool.
 (Strongly recommend to install in a virtual environment)
 
