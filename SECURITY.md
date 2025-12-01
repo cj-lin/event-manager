@@ -10,7 +10,9 @@ The following versions of event-manager are currently being supported with secur
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability in this project, please report it by opening a GitHub issue or contacting the maintainers directly.
+If you discover a security vulnerability in this project, please report it privately using one of the following methods:
+- [GitHub Security Advisories](https://github.com/<OWNER>/<REPO>/security/advisories) (recommended)
+- Email: security@event-manager.example.com
 
 Please include:
 - A description of the vulnerability
