@@ -44,6 +44,7 @@ def cli():
 )
 @click.option(
     "-l",
+    "log_prefix",
     help="log prefix (stdout if keep it blank)",
     type=click.Path(resolve_path=True),
 )
@@ -52,13 +53,13 @@ def cli():
 @click.option("-a", is_flag=True, help="auto refresh when config is updated")
 @click.option("-e", is_flag=True, help="delete files after finishing jobs")
 @click.option("-v", is_flag=True, help="debug mode")
-def start(d, f, l, c, r, a, e, v):
+def start(d, f, log_prefix, c, r, a, e, v):
     """start event-manager"""
     event_manager.EventManager(
         event_manager.GeneralConfig(
             watch=d,
             conf=f,
-            log=l,
+            log=log_prefix,
             concurrent=c,
             recursive=r,
             refresh=a,

@@ -2,20 +2,20 @@ all: install format test dist
 clean: clean-build clean-pyc clean-test
 
 install: clean
-	poetry install
+	uv sync --all-extras
 
 format:
-	poetry run black .
-	poetry run isort .
+	uv run ruff format .
+	uv run ruff check --fix .
 
 lint:
-	poetry run flake8 --max-line-length 88
+	uv run ruff check .
 
 mypy:
-	poetry run mypy . --ignore-missing-imports
+	uv run mypy . --ignore-missing-imports
 
 test:
-	poetry run pytest --cov=event_manager
+	uv run pytest --cov=event_manager
 
 clean-build:
 	rm -rf dist/
@@ -30,7 +30,6 @@ clean-test:
 	rm -rf .coverage .pytest_cache/
 
 dist: clean
-	poetry build
-	poetry run pip download -d ./dist/ .
+	uv build
 
 .PHONY: all clean

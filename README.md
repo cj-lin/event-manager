@@ -2,7 +2,7 @@
 
 EventManager is a lightweight workflow tool with shell utilities.
 Requires Python 3.10+.
-One can simply execute ``poetry install`` to install the tool.
+One can simply execute ``uv sync`` to install the tool.
 (Strongly recommend to install in a virtual environment)
 
 The entrypoint of EventManager is ``event-manager``.
@@ -25,6 +25,4 @@ In which ``Event`` and ``Process`` are needed, others are optional.
 
 # test
 
-We use ``pytest`` to run our tests, all you have to do is run ``pytest`` in ``tests`` directory.
-
-``environment.yml`` includes every modules needed to run tests.
+We use ``pytest`` to run our tests, all you have to do is run ``uv run pytest`` in the project directory.
