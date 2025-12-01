@@ -19,7 +19,7 @@ dev = [
     "mypy>=0.931",
     "pytest>=6.2.5",
     "pytest-cov>=3.0.0",
-    "ruff>=0.8.0",
+    "ruff>=0.14.7",
 ]
 
 [project.scripts]
@@ -34,8 +34,12 @@ line-length = 88
 target-version = "py310"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "W"]
-ignore = []
+select = ["E", "F", "I", "W", "B", "C90", "UP", "N"]
+ignore = [
+    "N801",  # Pre-existing: Class names should use CapWords convention
+    "UP009", # Pre-existing: UTF-8 encoding declaration is unnecessary
+    "C901",  # Pre-existing: Function is too complex
+]
 
 [tool.ruff.format]
 quote-style = "double"
