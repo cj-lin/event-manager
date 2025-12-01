@@ -14,8 +14,18 @@ from collections import deque
 
 from watchfiles import Change, watch
 
+# Thread join timeout in seconds
+_THREAD_JOIN_TIMEOUT = 1.0
+
 
 class FileWatcher:
+    """Multi-platform file watcher using watchfiles library.
+
+    Note: With watchfiles, the directories to watch are configured at start time.
+    Dynamic addition/removal of watches requires stopping and restarting the watcher.
+    In recursive mode, watchfiles automatically handles subdirectory watching.
+    """
+
     def __init__(self):
         self.watch_dirs = set()
         self.watch_dir = {}  # Keep for compatibility
@@ -46,6 +56,10 @@ class FileWatcher:
 
     def remove_watch(self, directory: pathlib.Path):
         """Remove a directory from watch list.
+
+        Note: With watchfiles, changes to watch_dirs don't take effect until
+        the watcher is restarted. In recursive mode, watchfiles automatically
+        handles directory removal events.
 
         Args:
             directory: Directory path to remove from watch.
@@ -112,7 +126,7 @@ class FileWatcher:
         """Reset the file watcher."""
         self._stop_event.set()
         if self._watcher_thread and self._watcher_thread.is_alive():
-            self._watcher_thread.join(timeout=1.0)
+            self._watcher_thread.join(timeout=_THREAD_JOIN_TIMEOUT)
         self.watch_dirs.clear()
         self.watch_dir.clear()
         self._changes.clear()
@@ -124,4 +138,4 @@ class FileWatcher:
         """Stop the file watcher."""
         self._stop_event.set()
         if self._watcher_thread and self._watcher_thread.is_alive():
-            self._watcher_thread.join(timeout=1.0)
+            self._watcher_thread.join(timeout=_THREAD_JOIN_TIMEOUT)
