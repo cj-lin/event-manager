@@ -206,6 +206,9 @@ class EventManager:
             elif status == "rmdir":
                 # With watchfiles, directory removal is handled automatically
                 self.config.log.debug("detected directory removal %s", str(pathname))
+                # Update internal watch state to remove deleted directory
+                self.filewatcher.watch_dirs.discard(pathname)
+                self.filewatcher.watch_dir.pop(pathname, None)
 
             elif status == "file":
                 self.config.log.debug("detected file %s", str(pathname))

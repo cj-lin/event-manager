@@ -57,10 +57,27 @@ class FileWatcher:
     def add_watch(self, directory: pathlib.Path, rec_flag: bool = False):
         """Add a directory to watch.
 
+        WARNING: The recursive setting is GLOBAL for all watched directories.
+        If you set rec_flag=True for any directory, ALL watched directories will be
+        watched recursively. Mixing recursive and non-recursive watches will result
+        in ALL directories being watched recursively.
+
         Args:
             directory: Directory path to watch.
             rec_flag: If True, enables recursive watching for ALL watched dirs.
         """
+        # Warn if mixing recursive and non-recursive watches
+        if rec_flag and not self.recursive and len(self.watch_dirs) > 0:
+            logger.warning(
+                "Mixing recursive and non-recursive watches: "
+                "Setting rec_flag=True will cause ALL watched directories "
+                "to be watched recursively."
+            )
+        elif not rec_flag and self.recursive:
+            logger.warning(
+                "Adding a non-recursive watch after recursive mode is enabled: "
+                "ALL watched directories will still be watched recursively."
+            )
         self.watch_dirs.add(directory)
         self.watch_dir[directory] = directory  # Keep for compatibility
         self._known_dirs.add(directory)
@@ -74,6 +91,19 @@ class FileWatcher:
             directory: Directory path to watch recursively.
         """
         self.add_watch(directory, rec_flag=True)
+        # Pre-populate known directories in recursive mode
+        try:
+            if directory.is_dir():
+                for subdir in directory.glob("**/*"):
+                    try:
+                        if subdir.is_dir():
+                            self._known_dirs.add(subdir)
+                    except OSError:
+                        # Handle permission denied, network issues, etc.
+                        pass
+        except OSError:
+            # Handle permission denied, network issues, etc.
+            pass
 
     def remove_watch(self, directory: pathlib.Path):
         """Remove a directory from watch list.
@@ -117,16 +147,24 @@ class FileWatcher:
                     status = None
 
                     if change_type == Change.added:
-                        if file_path.is_dir():
-                            status = "mkdir"
-                            self._known_dirs.add(file_path)
-                        else:
-                            status = "file"
+                        try:
+                            if file_path.is_dir():
+                                status = "mkdir"
+                                self._known_dirs.add(file_path)
+                            else:
+                                status = "file"
+                        except OSError:
+                            # Path no longer exists or permission denied, skip event
+                            pass
                     elif change_type == Change.modified:
                         # Directory modifications are ignored as they don't represent
                         # meaningful file content changes for trigger matching
-                        if file_path.is_file():
-                            status = "file"
+                        try:
+                            if file_path.is_file():
+                                status = "file"
+                        except OSError:
+                            # Path no longer exists or permission denied, skip event
+                            pass
                     elif change_type == Change.deleted:
                         # Check if this was a known directory
                         if file_path in self._known_dirs:
@@ -171,23 +209,22 @@ class FileWatcher:
             return len(self._changes) > 0
 
     def reset(self):
-        """Reset the file watcher."""
-        self._stop_event.set()
-        if self._watcher_thread and self._watcher_thread.is_alive():
-            self._watcher_thread.join(timeout=_THREAD_JOIN_TIMEOUT)
-            if self._watcher_thread.is_alive():
-                logger.warning("File watcher thread did not stop within timeout")
+        """Reset the file watcher by stopping it and clearing all state."""
+        self.stop()
         self.watch_dirs.clear()
         self.watch_dir.clear()
         with self._lock:
             self._changes.clear()
-        self._stop_event.clear()
         self.recursive = False
         self._watcher_thread = None
         self._known_dirs.clear()
 
     def stop(self):
-        """Stop the file watcher."""
+        """Stop the file watcher.
+
+        Note: stop() only stops the thread but leaves watch state intact.
+        Use reset() to stop the thread AND clear all state.
+        """
         self._stop_event.set()
         if self._watcher_thread and self._watcher_thread.is_alive():
             self._watcher_thread.join(timeout=_THREAD_JOIN_TIMEOUT)
