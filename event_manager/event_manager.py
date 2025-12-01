@@ -244,11 +244,11 @@ class EventManager:
                 dataclasses.replace(
                     self.events[name],
                     mapping={
-                        year: at.year,
-                        month: at.month,
-                        day: at.day,
-                        hour: at.hour,
-                        minute: at.minute,
+                        "year": at.year,
+                        "month": at.month,
+                        "day": at.day,
+                        "hour": at.hour,
+                        "minute": at.minute,
                     },
                 )
             )
