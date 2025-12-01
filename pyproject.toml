@@ -1,30 +1,42 @@
-[tool.poetry]
+[project]
 name = "event-manager"
 version = "1.0.0"
 description = "A lightweight workflow tool."
-authors = ["Cj Lin"]
-license = "MIT"
+authors = [{ name = "Cj Lin" }]
+license = { text = "MIT" }
+requires-python = ">=3.10"
+dependencies = [
+    "click>=8.0.3",
+    "inotify-simple>=1.3.5",
+    "psutil>=5.9.0",
+    "python-dateutil>=2.8.2",
+    "PyYAML>=6.0.0",
+    "sortedcontainers>=2.4.0",
+]
 
-[tool.poetry.dependencies]
-python = "^3.10"
-click = "^8.0.3"
-inotify-simple = "^1.3.5"
-psutil = "^5.9.0"
-python-dateutil = "^2.8.2"
-PyYAML = "^6.0.0"
-sortedcontainers = "^2.4.0"
+[project.optional-dependencies]
+dev = [
+    "mypy>=0.931",
+    "pytest>=6.2.5",
+    "pytest-cov>=3.0.0",
+    "ruff>=0.8.0",
+]
 
-[tool.poetry.dev-dependencies]
-black = "^24.4.2"
-flake8 = "^4.0.1"
-isort = "^5.10.1"
-mypy = "^0.931"
-pytest = "^6.2.5"
-pytest-cov = "^3.0.0"
-
-[tool.poetry.scripts]
+[project.scripts]
 event-manager = "event_manager:cli"
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+ignore = []
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
