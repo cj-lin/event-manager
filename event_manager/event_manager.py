@@ -210,8 +210,7 @@ class EventManager:
                 # With watchfiles, directory removal is handled automatically
                 self.config.log.debug("detected directory removal %s", str(pathname))
                 # Update internal watch state to remove deleted directory
-                self.filewatcher.watch_dirs.discard(pathname)
-                self.filewatcher.watch_dir.pop(pathname, None)
+                # No manual state update needed; watchfiles handles removal automatically.
 
             elif status == "file":
                 self.config.log.debug("detected file %s", str(pathname))
