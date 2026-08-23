@@ -5,7 +5,7 @@
 Filename: event_manager
 Author: CJ Lin
 
-Watch filesystem using inotify, react and monitor subprocess when event is generated.
+Watch filesystem using watchfiles, react and monitor subprocess when event is generated.
 """
 
 import asyncio
@@ -23,7 +23,7 @@ from . import cron, file_watch, log
 
 
 def resolve_path_all(path: pathlib.Path, resolve: bool = True) -> pathlib.Path:
-    """ Expend environment variables and resolve path.
+    """Expand environment variables and resolve path.
 
     Args:
         path (pathlib.Path): [description]
@@ -40,7 +40,7 @@ def resolve_path_all(path: pathlib.Path, resolve: bool = True) -> pathlib.Path:
 
 
 class GroupTemplate(string.Template):
-    """ Overwrite idpattern to enable $1 $2 ...
+    """Overwrite idpattern to enable $1 $2 ...
 
     Args:
         string ([type]): [description]
@@ -175,35 +175,42 @@ class EventManager:
 
     def run(self):
         """Run the event loop."""
-        self.event_loop.add_reader(self.filewatcher.inotify.fd, self.read_inotify_event)
+        self.filewatcher.start()
         self.event_loop.run_until_complete(
             asyncio.gather(
                 *[self.worker() for _ in range(self.config.concurrent)],
                 self.read_cron_event(),
+                self.poll_file_events(),
             )
         )
 
-    def read_inotify_event(self):
-        """Handle inotify events."""
+    async def poll_file_events(self):
+        """Poll for file events from the file watcher."""
+        while True:
+            try:
+                self.read_file_event()
+            except Exception as e:
+                self.config.log.error("Error processing file events: %s", e)
+            await asyncio.sleep(0.5)
+
+    def read_file_event(self):
+        """Handle file events."""
         for status, pathname in self.filewatcher.read():
             if self.config.refresh and pathname.samefile(self.config.conf):
-                if not self.config.recursive:
-                    self.event_loop.remove_reader(self.filewatcher.inotify.fd)
-                    self.filewatcher.reset()
-                    self.event_loop.add_reader(
-                        self.filewatcher.inotify.fd, self.read_inotify_event
-                    )
-
+                self.filewatcher.reset()
                 self.crontab.clear_all_rules()
                 self.load_config()
+                self.filewatcher.start()
 
             elif status == "mkdir":
-                self.filewatcher.add_watch(pathname, rec_flag=True)
-                self.config.log.debug("add %s to watch", str(pathname))
+                # With watchfiles, recursive watching is handled automatically
+                self.config.log.debug("detected new directory %s", str(pathname))
 
             elif status == "rmdir":
-                self.filewatcher.remove_watch(pathname)
-                self.config.log.debug("remove %s from watch", str(pathname))
+                # With watchfiles, directory removal is handled automatically
+                self.config.log.debug("detected directory removal %s", str(pathname))
+                # Update internal watch state to remove deleted directory
+                # No manual state update needed; watchfiles handles removal automatically.
 
             elif status == "file":
                 self.config.log.debug("detected file %s", str(pathname))
